@@ -2,20 +2,24 @@
 
 import streamlit as st
 import gspread  # type: ignore
-from google.oauth2.service_account import Credentials # type: ignore
+from google.oauth2.service_account import Credentials  # type: ignore
 from datetime import date
 
 # === Google Sheets 設定 ===
 SHEET_NAME = "my-todo-service"
 SPREADSHEET_KEY = "1Fds4YElXO_z2djG2kaib8tQeMKd_I-TuBEIbhi38DQ4"
-CREDENTIALS_FILE = r"c:\TEST\CODE\chromatic-baton-467909-n1-505020147c39.json"
 
 # Google Sheets 接続関数
 def get_worksheet():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
+    
+    # ✅ secrets.toml に定義した service_account 情報から認証
+    creds_dict = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+
     gc = gspread.authorize(creds)
     sh = gc.open_by_key(SPREADSHEET_KEY)
+
     try:
         return sh.worksheet(SHEET_NAME)
     except gspread.exceptions.WorksheetNotFound:
@@ -26,9 +30,9 @@ def get_worksheet():
 def load_data(ws):
     records = ws.get_all_records()
     for r in records:
-        r["done"] = str(r["完了"]).lower() == "true"
-        r["task"] = r["タスク"]
-        r["due"] = r["締切日"]
+        r["done"] = str(r.get("完了", "")).lower() == "true"
+        r["task"] = r.get("タスク", "")
+        r["due"] = r.get("締切日", "")
     return records
 
 # データ保存（全上書き）
@@ -41,8 +45,12 @@ def save_data(ws, data):
 # === Streamlit GUI ===
 st.title("🖘️ マイTO-DOリスト（Google Sheets連携）")
 
-ws = get_worksheet()
-data = load_data(ws)
+try:
+    ws = get_worksheet()
+    data = load_data(ws)
+except Exception as e:
+    st.error(f"Google Sheets の接続に失敗しました: {e}")
+    st.stop()
 
 new_task = st.text_input("新しいタスクを追加", "")
 due_date = st.date_input("締切日", value=date.today())
@@ -53,18 +61,44 @@ if st.button("➕ 追加"):
         save_data(ws, data)
         st.rerun()
 
+# 編集インデックスの初期化
+if "edit_index" not in st.session_state:
+    st.session_state["edit_index"] = -1
+
 st.write("### タスク一覧")
+edit_index = st.session_state["edit_index"]
+
 for i, item in enumerate(data):
-    col1, col2 = st.columns([0.8, 0.2])
+    col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
 
     with col1:
-        checked = st.checkbox(f"{item['task']}（締切: {item['due']}）", value=item["done"], key=f"chk{i}")
-        data[i]["done"] = checked
+        if i == edit_index:
+            edited_task = st.text_input("タスク編集", value=item["task"], key=f"edit_task_{i}")
+            edited_due = st.date_input("締切日編集", value=date.fromisoformat(item["due"]), key=f"edit_due_{i}")
+        else:
+            checked = st.checkbox(f"{item['task']}（締切: {item['due']}）", value=item["done"], key=f"chk{i}")
+            data[i]["done"] = checked
 
     with col2:
+        if i == edit_index:
+            if st.button("💾 保存", key=f"save{i}"):
+                data[i]["task"] = edited_task
+                data[i]["due"] = edited_due.isoformat()
+                st.session_state["edit_index"] = -1
+                save_data(ws, data)
+                st.rerun()
+        else:
+            if st.button("✏️ 編集", key=f"edit{i}"):
+                st.session_state["edit_index"] = i
+                st.rerun()
+
+    with col3:
         if st.button("🗑️ 削除", key=f"del{i}"):
             data.pop(i)
+            st.session_state["edit_index"] = -1
             save_data(ws, data)
             st.rerun()
 
-save_data(ws, data)
+
+
+
