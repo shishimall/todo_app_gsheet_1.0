@@ -10,7 +10,10 @@ SHEET_NAME = "my-todo-service"
 SPREADSHEET_KEY = "1Fds4YElXO_z2djG2kaib8tQeMKd_I-TuBEIbhi38DQ4"
 
 def get_worksheet():
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    scope = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
     creds_dict = st.secrets["gcp_service_account"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     gc = gspread.authorize(creds)
@@ -27,7 +30,7 @@ def load_data(ws):
         r["done"] = str(r.get("完了", "")).lower() == "true"
         r["task"] = r.get("タスク", "")
         r["due"] = r.get("締切日", "")
-        r["tag"] = r.get("属性", "未設定")
+        r["tag"] = r.get("属性", "その他")
     return records
 
 def save_data(ws, data):
@@ -75,7 +78,13 @@ for i, item in enumerate(data):
         if i == edit_index:
             edited_task = st.text_input("タスク編集", value=item["task"], key=f"edit_task_{i}")
             edited_due = st.date_input("締切日編集", value=date.fromisoformat(item["due"]), key=f"edit_due_{i}")
-            edited_tag = st.selectbox("属性編集", ["仕事", "プライベート", "その他"], index=["仕事", "プライベート", "その他"].index(item["tag"]), key=f"edit_tag_{i}")
+            tag_options = ["仕事", "プライベート", "その他"]
+            current_tag = item.get("tag", "その他")
+            if current_tag not in tag_options:
+                current_tag = "その他"
+            edited_tag = st.selectbox("属性編集", tag_options,
+                                      index=tag_options.index(current_tag),
+                                      key=f"edit_tag_{i}")
         else:
             st.markdown(f"<span style='{style}'>{display_task}</span>", unsafe_allow_html=True)
             data[i]["done"] = st.checkbox("完了", value=item["done"], key=f"chk{i}")
@@ -112,6 +121,7 @@ for i, item in enumerate(data):
             data[i + 1], data[i] = data[i], data[i + 1]
             save_data(ws, data)
             st.rerun()
+
 
 
 
