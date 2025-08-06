@@ -46,17 +46,15 @@ except Exception as e:
     st.error(f"Google Sheets の接続に失敗しました: {e}")
     st.stop()
 
+# === セッション状態の安全な初期化（use get method only） ===
+new_task = st.session_state.get("new_task", "")
+new_due = st.session_state.get("new_due", date.today())
+
 # 新規追加
 st.write("### 新しいタスクを追加")
 
-# セッション状態の初期化（ウィジェットより前にセット）
-if "new_task" not in st.session_state:
-    st.session_state["new_task"] = ""
-if "new_due" not in st.session_state:
-    st.session_state["new_due"] = date.today()
-
-new_task = st.text_input("タスク内容", value=st.session_state["new_task"], key="new_task")
-due_date = st.date_input("締切日", value=st.session_state["new_due"], key="new_due")
+new_task = st.text_input("タスク内容", value=new_task, key="new_task")
+due_date = st.date_input("締切日", value=new_due, key="new_due")
 tag = st.selectbox("属性", ["仕事", "プライベート", "その他"])
 
 if st.button("➕ 追加"):
@@ -127,5 +125,6 @@ for i, item in enumerate(data):
             data[i + 1], data[i] = data[i], data[i + 1]
             save_data(ws, data)
             st.rerun()
+
 
 
