@@ -4,11 +4,14 @@ import streamlit as st
 import gspread  # type: ignore
 from google.oauth2.service_account import Credentials  # type: ignore
 from datetime import date, datetime
-import time
+import streamlit.components.v1 as components
 
 # === Google Sheets 設定 ===
 SHEET_NAME = "my-todo-service"
 SPREADSHEET_KEY = "1Fds4YElXO_z2djG2kaib8tQeMKd_I-TuBEIbhi38DQ4"
+
+MAX_ROWS = 500  # 最大行数（消失対策）
+
 
 def get_worksheet():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -19,8 +22,9 @@ def get_worksheet():
     try:
         return sh.worksheet(SHEET_NAME)
     except gspread.exceptions.WorksheetNotFound:
-        sh.add_worksheet(title=SHEET_NAME, rows="100", cols="4")
+        sh.add_worksheet(title=SHEET_NAME, rows="1000", cols="4")
         return sh.worksheet(SHEET_NAME)
+
 
 def load_data(ws):
     records = ws.get_all_records()
@@ -31,11 +35,13 @@ def load_data(ws):
         r["tag"] = r.get("属性", "未設定")
     return records
 
+
 def save_data(ws, data):
     ws.clear()
     ws.append_row(["タスク", "締切日", "完了", "属性"])
-    for row in data:
+    for row in data[:MAX_ROWS]:  # 制限行数内で保存
         ws.append_row([row["task"], row["due"], str(row["done"]), row["tag"]])
+
 
 # === GUI ===
 st.title("🖘️ マイTO-DOリスト（Google Sheets連携）")
@@ -47,13 +53,20 @@ except Exception as e:
     st.error(f"Google Sheets の接続に失敗しました: {e}")
     st.stop()
 
-# === セッション状態の初期化（読み取り専用） ===
+# === セッション状態の初期化 ===
 new_task_default = st.session_state.get("new_task", "")
 new_due_default = st.session_state.get("new_due", date.today())
 
-# 新規追加
-st.write("### 新しいタスクを追加")
+# === 自動リロード用スクリプト ===
+def force_reload():
+    components.html("""
+        <script>
+            window.location.reload();
+        </script>
+    """, height=0)
 
+# === 新規追加フォーム ===
+st.write("### 新しいタスクを追加")
 new_task = st.text_input("タスク内容", value=new_task_default, key="new_task")
 due_date = st.date_input("締切日", value=new_due_default, key="new_due")
 tag = st.selectbox("属性", ["仕事", "プライベート", "その他"])
@@ -62,18 +75,15 @@ if st.button("➕ 追加"):
     if new_task.strip():
         data.append({"task": new_task.strip(), "due": due_date.isoformat(), "done": False, "tag": tag})
         save_data(ws, data)
-        # セッション状態の変更はせず、遅延リロードだけ行う
-        st.success("追加完了。ページをリロード中...")
-        time.sleep(0.5)
-        st.experimental_rerun()
+        force_reload()
 
-# 並び替えボタン
+# === 締切日で並べ替え ===
 if st.button("📅 締切日で並べ替え"):
     data.sort(key=lambda x: x["due"])
     save_data(ws, data)
-    st.rerun()
+    force_reload()
 
-# 編集状態
+# === 編集状態管理 ===
 if "edit_index" not in st.session_state:
     st.session_state["edit_index"] = -1
 edit_index = st.session_state["edit_index"]
@@ -127,6 +137,7 @@ for i, item in enumerate(data):
             data[i + 1], data[i] = data[i], data[i + 1]
             save_data(ws, data)
             st.rerun()
+
 
 
 
