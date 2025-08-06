@@ -1,4 +1,4 @@
-# todo_app_gsheet_v1.2
+# todo_app_gsheet
 
 import streamlit as st
 import gspread  # type: ignore
@@ -49,14 +49,14 @@ except Exception as e:
 # 新規追加
 st.write("### 新しいタスクを追加")
 
-# セッション状態の初期化
+# セッション状態の初期化（安全に）
 if "new_task" not in st.session_state:
-    st.session_state["new_task"] = ""
+    st.session_state.update({"new_task": ""})
 if "new_due" not in st.session_state:
-    st.session_state["new_due"] = date.today()
+    st.session_state.update({"new_due": date.today()})
 
 new_task = st.text_input("タスク内容", key="new_task")
-due_date = st.date_input("締切日", value=st.session_state["new_due"], key="new_due")
+due_date = st.date_input("締切日", value=st.session_state.get("new_due", date.today()), key="new_due")
 tag = st.selectbox("属性", ["仕事", "プライベート", "その他"])
 
 if st.button("➕ 追加"):
