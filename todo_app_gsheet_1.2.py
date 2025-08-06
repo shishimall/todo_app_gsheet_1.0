@@ -4,6 +4,7 @@ import streamlit as st
 import gspread  # type: ignore
 from google.oauth2.service_account import Credentials  # type: ignore
 from datetime import date, datetime
+import time
 
 # === Google Sheets 設定 ===
 SHEET_NAME = "my-todo-service"
@@ -46,24 +47,25 @@ except Exception as e:
     st.error(f"Google Sheets の接続に失敗しました: {e}")
     st.stop()
 
-# === セッション状態の安全な初期化（use get method only） ===
-new_task = st.session_state.get("new_task", "")
-new_due = st.session_state.get("new_due", date.today())
+# === セッション状態の初期化（読み取り専用） ===
+new_task_default = st.session_state.get("new_task", "")
+new_due_default = st.session_state.get("new_due", date.today())
 
 # 新規追加
 st.write("### 新しいタスクを追加")
 
-new_task = st.text_input("タスク内容", value=new_task, key="new_task")
-due_date = st.date_input("締切日", value=new_due, key="new_due")
+new_task = st.text_input("タスク内容", value=new_task_default, key="new_task")
+due_date = st.date_input("締切日", value=new_due_default, key="new_due")
 tag = st.selectbox("属性", ["仕事", "プライベート", "その他"])
 
 if st.button("➕ 追加"):
     if new_task.strip():
         data.append({"task": new_task.strip(), "due": due_date.isoformat(), "done": False, "tag": tag})
         save_data(ws, data)
-        st.session_state["new_task"] = ""
-        st.session_state["new_due"] = date.today()
-        st.rerun()
+        # セッション状態の変更はせず、遅延リロードだけ行う
+        st.success("追加完了。ページをリロード中...")
+        time.sleep(0.5)
+        st.experimental_rerun()
 
 # 並び替えボタン
 if st.button("📅 締切日で並べ替え"):
@@ -125,6 +127,7 @@ for i, item in enumerate(data):
             data[i + 1], data[i] = data[i], data[i + 1]
             save_data(ws, data)
             st.rerun()
+
 
 
 
