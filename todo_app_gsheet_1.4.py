@@ -160,7 +160,7 @@ def _sort_key_due(r: Dict):
 
 
 # ======= GUI =======
-st.title("🖘️ マイTO-DOリスト（Google Sheets連携）— v1.3")
+st.title("🖘️ マイTO-DOリスト（Google Sheets連携）— v1.4")
 
 try:
     ws = get_worksheet()
