@@ -4,3 +4,5 @@ google-auth
 google-auth-oauthlib
 google-api-python-client
 pandas
+openpyxl>=3.1.2
+
