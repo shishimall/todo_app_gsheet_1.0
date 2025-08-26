@@ -3,6 +3,8 @@ gspread
 google-auth
 google-auth-oauthlib
 google-api-python-client
-pandas
-openpyxl>=3.1.2
+pandas>=2.2
+openpyxl==3.1.5
+xlsxwriter>=3.2.0
+
 
